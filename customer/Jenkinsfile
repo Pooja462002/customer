@@ -20,15 +20,15 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Compile Code') {
-            steps {
-                container('maven-junit') {
-                    script {
-                            sh 'mvn clean install -DskipTests'
-                    }
-                }
-            }
-        }
+//         stage('Compile Code') {
+//             steps {
+//                 container('maven-junit') {
+//                     script {
+//                             sh 'mvn clean install -DskipTests'
+//                     }
+//                 }
+//             }
+//         }
         stage('Run JUnit Tests') {
             steps {
                 container('maven-junit') {
