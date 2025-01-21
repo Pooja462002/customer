@@ -22,7 +22,7 @@ pipeline {
         }
         stage('Compile Code') {
             steps {
-                container('maven-junits') {
+                container('maven-junit') {
                     script {
                         dir('customer') {
                             sh 'mvn clean install -DskipTests'
@@ -33,7 +33,7 @@ pipeline {
         }
         stage('Run JUnit Tests') {
             steps {
-                container('maven-junits') {
+                container('maven-junit') {
                     script {
                         dir('your-springboot-project') {
                             sh 'mvn test'
@@ -44,7 +44,7 @@ pipeline {
         }
         stage('Check Code Coverage') {
             steps {
-                container('maven-junits') {
+                container('maven-junit') {
                     script {
                         dir('your-springboot-project') {
                             sh 'mvn jacoco:report'
@@ -55,7 +55,7 @@ pipeline {
         }
         stage('SonarQube Analysis') {
             steps {
-                container('maven-junits') {
+                container('maven-junit') {
                     withSonarQubeEnv('jenkins-sonar') {
                         script {
                             dir('customer') {
@@ -74,7 +74,7 @@ pipeline {
         }
         stage('Build Docker Image') {
             steps {
-                container('gclouds-docker') {
+                container('gcloud-docker') {
                     script {
                         sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./your-springboot-project"
                     }
@@ -84,7 +84,7 @@ pipeline {
         stage('Login and Push Image to Container Registry') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
-                    container('gclouds-docker') {
+                    container('gcloud-docker') {
                         script {
                             sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
                             sh 'gcloud auth configure-docker us-central1-docker.pkg.dev'
@@ -96,7 +96,7 @@ pipeline {
         }
         stage('Deploy to GKE') {
             steps {
-                container('gclouds-docker') {
+                container('gcloud-docker') {
                     script {
                         sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
 
