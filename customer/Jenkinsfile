@@ -24,9 +24,9 @@ pipeline {
             steps {
                 container('maven-junit') {
                     script {
-                        dir('customer') {
+                  //      dir('customer') {
                                sh 'mvn clean install -DskipTests'
-                        }
+                  //      }
                     }
                 }
             }
