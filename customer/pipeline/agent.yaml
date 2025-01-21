@@ -4,7 +4,7 @@ metadata:
   name: backend-build
 spec:
   containers:
-    - name: gclouds-docker
+    - name: gcloud-docker
       image: 'google/cloud-sdk'
       command: ["sleep"]
       args: ["infinity"]
@@ -22,9 +22,11 @@ spec:
               - "-c"
               - |
                 apt-get update && \
-                apt-get install -y docker.io kubectl
+                apt-get install -y docker.io kubectl && \
+                echo "Docker and kubectl installed successfully" || \
+                echo "Error installing Docker and kubectl" > /tmp/post_start_error.log
 
-    - name: maven-junits
+    - name: maven-junit
       image: 'maven:3.8.3-openjdk-17'
       command: ["sleep"]
       args: ["infinity"]
@@ -40,7 +42,9 @@ spec:
               - "-c"
               - |
                 apt-get update && \
-                apt-get install -y jq curl
+                apt-get install -y jq curl && \
+                echo "jq and curl installed successfully" || \
+                echo "Error installing jq and curl" > /tmp/post_start_error.log
 
   volumes:
     - name: docker-socket
