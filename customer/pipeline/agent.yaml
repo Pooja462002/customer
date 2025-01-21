@@ -4,7 +4,7 @@ metadata:
   name: backend-build
 spec:
   containers:
-    - name: gcloud-docker
+    - name: gclouds-docker
       image: 'google/cloud-sdk'
       command: ["sleep"]
       args: ["infinity"]
@@ -24,7 +24,7 @@ spec:
                 apt-get update && \
                 apt-get install -y docker.io kubectl
 
-    - name: maven-junit
+    - name: maven-junits
       image: 'maven:3.8.3-openjdk-17'
       command: ["sleep"]
       args: ["infinity"]
