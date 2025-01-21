@@ -2,7 +2,7 @@ pipeline {
     agent {
         kubernetes {
             label "agent-${UUID.randomUUID().toString()}"
-            yamlFile "hello-world-nextjs/pipeline/agent.yaml"
+            yamlFile "customer/pipeline/agent.yaml"
         }
     }
     environment {
