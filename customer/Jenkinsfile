@@ -20,20 +20,22 @@ pipeline {
                 checkout scm
             }
         }
-//         stage('Compile Code') {
-//             steps {
-//                 container('maven-junit') {
-//                     script {
-//                             sh 'mvn clean install -DskipTests'
-//                     }
-//                 }
-//             }
-//         }
+        stage('Compile Code') {
+            steps {
+                container('maven-junit') {
+                    script {
+                        dir('customer') {
+                               sh 'mvn clean install -DskipTests'
+                        }
+                    }
+                }
+            }
+        }
         stage('Run JUnit Tests') {
             steps {
                 container('maven-junit') {
                     script {
-                        dir('your-springboot-project') {
+                        dir('customer') {
                             sh 'mvn test'
                         }
                     }
@@ -44,7 +46,7 @@ pipeline {
             steps {
                 container('maven-junit') {
                     script {
-                        dir('your-springboot-project') {
+                        dir('customer') {
                             sh 'mvn jacoco:report'
                         }
                     }
