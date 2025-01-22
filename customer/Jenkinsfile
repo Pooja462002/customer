@@ -32,28 +32,28 @@ pipeline {
             }
         }
         stage('SonarQube Analysis') {
-            steps {
-                container('sonarqube-scanner') {
-                    withSonarQubeEnv('jenkins-sonar') {
-                        script {
-                            sh """
-                                npm install sonar-scanner --save-dev
-                                npx sonar-scanner \
-                                -Dsonar.projectKey=customertest \
-                                -Dsonar.projectName=customertest \
-                                -Dsonar.host.url=${SONARQUBE_URL} \
-                                -Dsonar.login=${SONARQUBE_TOKEN}
-                            """
-                            // Wait for the Quality Gate status
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                error "Quality Gate failed. Status: ${qg.status}"
-                            }
-                        }
+    steps {
+        container('maven-container') {  // Use Maven container to build the project
+            withSonarQubeEnv('jenkins-sonar') {
+                script {
+                    // Run Maven build and SonarQube analysis
+                    sh """
+                        mvn clean install sonar:sonar \
+                        -Dsonar.projectKey=customertest \
+                        -Dsonar.projectName=customertest \
+                        -Dsonar.host.url=${SONARQUBE_URL} \
+                        -Dsonar.login=${SONARQUBE_TOKEN}
+                    """
+                    // Wait for the Quality Gate status
+                    def qg = waitForQualityGate()
+                    if (qg.status != 'OK') {
+                        error "Quality Gate failed. Status: ${qg.status}"
                     }
                 }
             }
         }
+    }
+}
         stage('Authenticate and Push Docker Image') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
