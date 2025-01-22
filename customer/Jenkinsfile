@@ -36,18 +36,21 @@ pipeline {
         container('maven-container') {  // Use Maven container to build the project
             withSonarQubeEnv('jenkins-sonar') {
                 script {
-                    // Run Maven build and SonarQube analysis
-                    sh """
-                        mvn clean install sonar:sonar \
-                        -Dsonar.projectKey=customertest \
-                        -Dsonar.projectName=customertest \
-                        -Dsonar.host.url=${SONARQUBE_URL} \
-                        -Dsonar.login=${SONARQUBE_TOKEN}
-                    """
-                    // Wait for the Quality Gate status
-                    def qg = waitForQualityGate()
-                    if (qg.status != 'OK') {
-                        error "Quality Gate failed. Status: ${qg.status}"
+                    // Ensure we're in the correct directory (where pom.xml is located)
+                    dir('/home/jenkins/agent/workspace/customer') {
+                        // Run Maven build and SonarQube analysis
+                        sh """
+                            mvn clean install sonar:sonar \
+                            -Dsonar.projectKey=customertest \
+                            -Dsonar.projectName=customertest \
+                            -Dsonar.host.url=${SONARQUBE_URL} \
+                            -Dsonar.login=${SONARQUBE_TOKEN}
+                        """
+                        // Wait for the Quality Gate status
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Quality Gate failed. Status: ${qg.status}"
+                        }
                     }
                 }
             }
