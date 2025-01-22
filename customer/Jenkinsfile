@@ -57,10 +57,8 @@ pipeline {
                 container('maven-container') {
                     script {
                         timeout(time: 1, unit: 'MINUTES') {
-                            def qualityGate = waitForQualityGate()
-                            if (qualityGate.status != 'OK') {
-                                error "Pipeline aborted due to Quality Gate failure: ${qualityGate.status}"
-                            }
+                           def qualityGate = waitForQualityGate abortPipeline: true
+                           echo "Quality Gate result: ${qualityGate.status}"
                         }
                     }
                 }
