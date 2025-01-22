@@ -29,8 +29,9 @@ spec:
       command: [ "sleep" ]
       args: [ "infinity" ]
     
+    containers:
     - name: sonarqube-scanner
-      image: 'sonarsource/sonar-scanner-cli'  # SonarQube scanner CLI
+      image: 'sonarsource/sonar-scanner-cli'
       command: [ "sleep" ]
       args: [ "infinity" ]
       lifecycle:
@@ -42,6 +43,13 @@ spec:
               - |
                 apt-get update && \
                 apt-get install -y maven
+      resources:
+        requests:
+          memory: "2Gi"  # Adjust based on your needs
+          cpu: "1"
+        limits:
+          memory: "4Gi"  # Adjust based on your needs
+          cpu: "2"
 
   volumes:
     - name: docker-socket
