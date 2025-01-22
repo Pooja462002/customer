@@ -24,7 +24,7 @@ spec:
                 apt-get update && \
                 apt-get install -y docker.io kubectl
     - name: maven-container
-      image: 'maven:3.8.6-jdk-11'  # Maven base image
+      image: 'maven:3.8.6-eclipse-temurin-17'  # Maven base image
       command: [ "sleep" ]
       args: [ "infinity" ]
     - name: sonarqube-scanner
