@@ -52,15 +52,15 @@ pipeline {
         }
     }
 }
-            stage('Quality Gate') {
+        stage('Quality Gate') {
             steps {
-                script {
-                    timeout(time: 3, unit: 'MINUTES') { 
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            echo "WARNING: Quality Gate failed with status: ${qg.status}. Proceeding with pipeline execution."
-                        } else {
-                            echo "Quality Gate passed successfully."
+                container('maven-container') {
+                    script {
+                        timeout(time: 1, unit: 'MINUTES') {
+                            def qualityGate = waitForQualityGate()
+                            if (qualityGate.status != 'OK') {
+                                error "Pipeline aborted due to Quality Gate failure: ${qualityGate.status}"
+                            }
                         }
                     }
                 }
