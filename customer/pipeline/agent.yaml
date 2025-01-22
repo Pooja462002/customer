@@ -27,7 +27,7 @@ spec:
                 echo "Error installing Docker and kubectl" > /tmp/post_start_error.log
 
     - name: maven-junit
-      image: 'maven:3.8.3-openjdk-17'
+      image: 'maven:3.8.6-jdk-11'
       command: ["sleep"]
       args: ["infinity"]
       workingDir: /workspace
