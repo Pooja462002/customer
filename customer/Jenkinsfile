@@ -6,12 +6,12 @@ pipeline {
         }
     }
     environment {
-        GKE_CLUSTER_NAME = 'lloydsbank-cluster'
-        GKE_PROJECT = 'sap-2024novasdeblr-prd-mg'
-        GKE_ZONE = 'asia-south1'
-        DOCKER_REGISTRY = 'asia-south1-docker.pkg.dev/sap-2024novasdeblr-prd-mg/lloyds-docker-repo'
+        GKE_CLUSTER_NAME = 'prod-phase-sonar' 
+        GKE_PROJECT = 'jenkins-sonar-448116'  
+        GKE_ZONE = 'us-central1-c'
+        DOCKER_REGISTRY = 'us-central1-docker.pkg.dev/jenkins-sonar-448116/docker-registry'
         DOCKER_IMAGE_NAME = 'backend-image'
-        SONARQUBE_URL = 'http://35.201.41.28:9000'
+        SONARQUBE_URL = 'http://34.121.131.107:9000'
         SONARQUBE_TOKEN = credentials('jenkins-sonar')
     }
     stages {
