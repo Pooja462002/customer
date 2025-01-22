@@ -37,8 +37,8 @@ pipeline {
                     withSonarQubeEnv('jenkins-sonar') {
                         sh """
                             mvn sonar:sonar \
-                            -Dsonar.projectKey=backend-sonartest \
-                            -Dsonar.projectName="Backend Analysis" \
+                            -Dsonar.projectKey=customertest \
+                            -Dsonar.projectName=customertest \
                             -Dsonar.host.url=${SONARQUBE_URL} \
                             -Dsonar.login=${SONARQUBE_TOKEN}
                         """
