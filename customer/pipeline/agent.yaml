@@ -28,8 +28,7 @@ spec:
       image: 'maven:3.8.6-eclipse-temurin-17'  # Maven base image
       command: [ "sleep" ]
       args: [ "infinity" ]
-    
-    containers:
+
     - name: sonarqube-scanner
       image: 'sonarsource/sonar-scanner-cli'
       command: [ "sleep" ]
