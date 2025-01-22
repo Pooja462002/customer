@@ -34,23 +34,7 @@ spec:
       image: 'sonarsource/sonar-scanner-cli'
       command: [ "sleep" ]
       args: [ "infinity" ]
-      lifecycle:
-        postStart:
-          exec:
-            command:
-              - "/bin/sh"
-              - "-c"
-              - |
-                apt-get update && \
-                apt-get install -y maven
-      resources:
-        requests:
-          memory: "2Gi"  # Adjust based on your needs
-          cpu: "1"
-        limits:
-          memory: "4Gi"  # Adjust based on your needs
-          cpu: "2"
-
+      
   volumes:
     - name: docker-socket
       hostPath:
