@@ -23,14 +23,26 @@ spec:
               - |
                 apt-get update && \
                 apt-get install -y docker.io kubectl
+
     - name: maven-container
       image: 'maven:3.8.6-eclipse-temurin-17'  # Maven base image
       command: [ "sleep" ]
       args: [ "infinity" ]
+    
     - name: sonarqube-scanner
-      image: 'maven:3.8.6-eclipse-temurin-17'  # SonarQube scanner CLI
+      image: 'sonarsource/sonar-scanner-cli'  # SonarQube scanner CLI
       command: [ "sleep" ]
       args: [ "infinity" ]
+      lifecycle:
+        postStart:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - |
+                apt-get update && \
+                apt-get install -y maven
+
   volumes:
     - name: docker-socket
       hostPath:
