@@ -37,7 +37,8 @@ pipeline {
                     withSonarQubeEnv('jenkins-sonar') {
                         script {
                             sh """
-                                mvn sonar:sonar \
+                                npm install sonar-scanner --save-dev
+                                npx sonar-scanner \
                                 -Dsonar.projectKey=customertest \
                                 -Dsonar.projectName=customertest \
                                 -Dsonar.host.url=${SONARQUBE_URL} \
