@@ -5,12 +5,12 @@ metadata:
 spec:
   containers:
     - name: gcloud-docker
-      image: 'google/cloud-sdk'
-      command: ["sleep"]
-      args: ["infinity"]
+      image: 'google/cloud-sdk'  # gcloud SDK base image
+      command: [ "sleep" ]
+      args: [ "infinity" ]
       env:
         - name: DOCKER_HOST
-          value: "unix:///var/run/docker.sock"
+          value: "unix:///var/run/docker.sock"  # Docker socket
       volumeMounts:
         - name: docker-socket
           mountPath: /var/run/docker.sock
@@ -22,34 +22,17 @@ spec:
               - "-c"
               - |
                 apt-get update && \
-                apt-get install -y docker.io kubectl && \
-                echo "Docker and kubectl installed successfully" || \
-                echo "Error installing Docker and kubectl" > /tmp/post_start_error.log
-
-    - name: maven-junit
-      image: 'maven:3.8.6-jdk-11'
-      command: ["sleep"]
-      args: ["infinity"]
-      workingDir: /workspace
-      volumeMounts:
-        - name: source-code
-          mountPath: /workspace
-      lifecycle:
-        postStart:
-          exec:
-            command:
-              - "/bin/sh"
-              - "-c"
-              - |
-                apt-get update && \
-                apt-get install -y jq curl maven && \
-                echo "Maven, jq, and curl installed successfully" || \
-                echo "Error installing Maven, jq, and curl" > /tmp/post_start_error.log
-
+                apt-get install -y docker.io kubectl
+    - name: maven-container
+      image: 'maven:3.8.6-jdk-11'  # Maven base image
+      command: [ "sleep" ]
+      args: [ "infinity" ]
+    - name: sonarqube-scanner
+      image: 'sonarsource/sonar-scanner-cli'  # SonarQube scanner CLI
+      command: [ "sleep" ]
+      args: [ "infinity" ]
   volumes:
     - name: docker-socket
       hostPath:
         path: /var/run/docker.sock
         type: Socket
-    - name: source-code
-      emptyDir: {}
