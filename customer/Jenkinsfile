@@ -24,9 +24,9 @@ pipeline {
             steps {
                 container('maven-junit') {
                     script {
-                  //      dir('customer') {
+                        dir('customer') {
                                sh 'mvn clean install -DskipTests -x'
-                  //      }
+                        }
                     }
                 }
             }
@@ -76,7 +76,7 @@ pipeline {
             steps {
                 container('gcloud-docker') {
                     script {
-                        sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./your-springboot-project"
+                        sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./customer"
                     }
                 }
             }
@@ -98,8 +98,7 @@ pipeline {
             steps {
                 container('gcloud-docker') {
                     script {
-                        sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
-
+                        sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"\
                         sh 'kubectl apply -f customer/kubernetes/deployment.yaml'
                         sh 'kubectl apply -f customer/kubernetes/service.yaml'
                     }
