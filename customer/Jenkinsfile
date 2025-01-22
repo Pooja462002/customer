@@ -37,7 +37,7 @@ pipeline {
             withSonarQubeEnv('jenkins-sonar') {
                 script {
                     // Ensure we're in the correct directory (where pom.xml is located)
-                    dir('/home/jenkins/agent/workspace/customer') {
+                    dir('/home/jenkins/agent/workspace/customer/customer') {
                         // Run Maven build and SonarQube analysis
                         sh """
                             mvn clean install sonar:sonar \
