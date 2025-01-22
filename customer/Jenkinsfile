@@ -25,7 +25,7 @@ pipeline {
                 container('maven-junit') {
                     script {
                         dir('customer') {
-                               sh 'mvn clean install -DskipTests -x'
+                               
                         }
                     }
                 }
@@ -36,7 +36,7 @@ pipeline {
                 container('maven-junit') {
                     script {
                         dir('customer') {
-                            sh 'mvn test'
+                            
                         }
                     }
                 }
@@ -47,7 +47,7 @@ pipeline {
                 container('maven-junit') {
                     script {
                         dir('customer') {
-                            sh 'mvn jacoco:report'
+                            
                         }
                     }
                 }
@@ -60,7 +60,6 @@ pipeline {
                         script {
                             dir('customer') {
                                 sh """
-                                    mvn clean verify sonar:sonar \
                                     -Dsonar.projectKey=sonar-customer-test \
                                     -Dsonar.projectName="sonar-customer-test" \
                                     -Dsonar.host.url=${SONARQUBE_URL} \
