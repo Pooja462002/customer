@@ -28,7 +28,7 @@ spec:
       command: [ "sleep" ]
       args: [ "infinity" ]
     - name: sonarqube-scanner
-      image: 'sonarsource/sonar-scanner-cli'  # SonarQube scanner CLI
+      image: 'maven:3.8.6-eclipse-temurin-17'  # SonarQube scanner CLI
       command: [ "sleep" ]
       args: [ "infinity" ]
   volumes:
