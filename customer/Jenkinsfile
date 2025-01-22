@@ -52,6 +52,20 @@ pipeline {
         }
     }
 }
+            stage('Quality Gate') {
+            steps {
+                script {
+                    timeout(time: 3, unit: 'MINUTES') { 
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            echo "WARNING: Quality Gate failed with status: ${qg.status}. Proceeding with pipeline execution."
+                        } else {
+                            echo "Quality Gate passed successfully."
+                        }
+                    }
+                }
+            }
+        }
         stage('Authenticate and Push Docker Image') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
