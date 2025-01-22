@@ -6,8 +6,8 @@ pipeline {
         }
     }
     environment {
-        GKE_CLUSTER_NAME = 'prod-phase-sonar' 
-        GKE_PROJECT = 'jenkins-sonar-448116'  
+        GKE_CLUSTER_NAME = 'prod-phase-sonar'
+        GKE_PROJECT = 'jenkins-sonar-448116'
         GKE_ZONE = 'us-central1-c'
         DOCKER_REGISTRY = 'us-central1-docker.pkg.dev/jenkins-sonar-448116/docker-registry'
         DOCKER_IMAGE_NAME = 'backend-image'
@@ -35,13 +35,20 @@ pipeline {
             steps {
                 container('sonarqube-scanner') {
                     withSonarQubeEnv('jenkins-sonar') {
-                        sh """
-                            mvn sonar:sonar \
-                            -Dsonar.projectKey=customertest \
-                            -Dsonar.projectName=customertest \
-                            -Dsonar.host.url=${SONARQUBE_URL} \
-                            -Dsonar.login=${SONARQUBE_TOKEN}
-                        """
+                        script {
+                            sh """
+                                mvn sonar:sonar \
+                                -Dsonar.projectKey=customertest \
+                                -Dsonar.projectName=customertest \
+                                -Dsonar.host.url=${SONARQUBE_URL} \
+                                -Dsonar.login=${SONARQUBE_TOKEN}
+                            """
+                            // Wait for the Quality Gate status
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                error "Quality Gate failed. Status: ${qg.status}"
+                            }
+                        }
                     }
                 }
             }
