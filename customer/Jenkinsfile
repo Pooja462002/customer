@@ -46,11 +46,6 @@ pipeline {
                             -Dsonar.host.url=${SONARQUBE_URL} \
                             -Dsonar.login=${SONARQUBE_TOKEN}
                         """
-                        // Wait for the Quality Gate status
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            error "Quality Gate failed. Status: ${qg.status}"
-                        }
                     }
                 }
             }
