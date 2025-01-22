@@ -2,7 +2,7 @@ pipeline {
     agent {
         kubernetes {
             label "agent-${UUID.randomUUID().toString()}"
-            yamlFile "backend/pipeline/agent.yaml"
+            yamlFile "customer/pipeline/agent.yaml"
         }
     }
     environment {
@@ -24,7 +24,7 @@ pipeline {
             steps {
                 container('maven-container') {
                     script {
-                        dir('backend') {
+                        dir('customer') {
                             sh 'mvn clean install' // Run Maven build and tests
                         }
                     }
