@@ -41,8 +41,8 @@ pipeline {
                         // Run Maven build and SonarQube analysis
                         sh """
                             mvn clean install sonar:sonar \
-                            -Dsonar.projectKey=customertest \
-                            -Dsonar.projectName=customertest \
+                            -Dsonar.projectKey=trivytest \
+                            -Dsonar.projectName=trivytest \
                             -Dsonar.host.url=${SONARQUBE_URL} \
                             -Dsonar.login=${SONARQUBE_TOKEN}
                         """
