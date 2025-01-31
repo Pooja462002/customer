@@ -78,14 +78,14 @@ pipeline {
             }
         }
        
-    stage('Run Trivy Scan') {
+   stage('Run Trivy Scan') {
     steps {
         container('gcloud-docker') {
             script {
                 echo "Running Trivy Scan on the Docker image..."
 
                 sh '''
-                    set -e  # Exit if any command fails
+                    set -e  # Exit on error
 
                     # Install curl if missing
                     apt-get update && apt-get install -y curl
@@ -99,7 +99,11 @@ pipeline {
                         exit 1
                     fi
 
-                    # Run the Trivy scan on the built image
+                    # Download the Trivy HTML template
+                    curl -O https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
+                    mv html.tpl custom-html.tpl  # Rename to match expected filename
+
+                    # Run the Trivy scan
                     ./bin/trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
                     -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
                 '''
