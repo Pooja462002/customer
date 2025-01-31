@@ -164,5 +164,18 @@ pipeline {
                 }
             }
         }
+        post {
+        cleanup {
+            cleanWs(cleanWhenNotBuilt: false,
+                deleteDirs: true,
+                disableDeferredWipeout: true,
+                notFailBuild: true,
+                patterns: [[pattern: '.*', type: 'INCLUDE']])
+            sh 'docker logout'
+            echo 'Current directory is..'
+            echo pwd()
+            sh "rm ${env.WORKSPACE}/* -fr"
+        }
+    }
     }
 }
