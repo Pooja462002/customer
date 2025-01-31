@@ -154,18 +154,23 @@ pipeline {
         }
     }
 
-    post {
-        cleanup {
-            cleanWs(
-                cleanWhenNotBuilt: false,
-                deleteDirs: true,
-                disableDeferredWipeout: true,
-                notFailBuild: true,
-                patterns: [[pattern: '.*', type: 'INCLUDE']]
-            )
-            sh 'docker logout'
-            echo 'Cleaning up workspace...'
-            sh "rm -rf ${env.WORKSPACE}/*"
+ post {
+    cleanup {
+        container('gcloud-docker') {
+            script {
+                cleanWs(
+                    cleanWhenNotBuilt: false,
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true,
+                    patterns: [[pattern: '.*', type: 'INCLUDE']]
+                )
+                sh 'docker logout || true' // Ignore errors if docker is not logged in
+                echo 'Cleaning up workspace...'
+                sh "rm -rf ${env.WORKSPACE}/*"
+            }
         }
     }
+} }
+
 }
