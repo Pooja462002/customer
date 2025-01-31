@@ -69,7 +69,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
                     container('gcloud-docker') {
                         script {
-                            sh 'gcloud auth activate-service-account --key-file=${GCLOUD_SERVICE_KEY}'
+                            sh "gcloud auth activate-service-account --key-file=${GCLOUD_SERVICE_KEY}"
                             sh 'gcloud auth configure-docker asia-south1-docker.pkg.dev'
                             sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./backend"
                             sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
