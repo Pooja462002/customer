@@ -5,7 +5,6 @@ pipeline {
             yamlFile "customer/pipeline/agent.yaml"
         }
     }
-    
     environment {
         GKE_CLUSTER_NAME = 'prod-phase-sonar'
         GKE_PROJECT = 'jenkins-sonar-448116'
@@ -15,70 +14,56 @@ pipeline {
         SONARQUBE_URL = 'http://34.121.131.107:9000'
         SONARQUBE_TOKEN = credentials('jenkins-sonar')
     }
-    
-    options {
-        buildDiscarder(
-            logRotator(
-                numToKeepStr: '2',
-                daysToKeepStr: '2',
-                artifactDaysToKeepStr: '2',
-                artifactNumToKeepStr: '2'
-            )
-        )
-    }
-    
     stages {
         stage('Clone Repository') {
             steps {
                 checkout scm
             }
         }
-        
         stage('Maven Build & Test') {
             steps {
                 container('maven-container') {
                     script {
                         dir('customer') {
-                            sh 'mvn clean install'
+                            sh 'mvn clean install' // Run Maven build and tests
                         }
                     }
                 }
             }
         }
-        
         stage('SonarQube Analysis') {
-            steps {
-                container('maven-container') {
-                    withSonarQubeEnv('jenkins-sonar') {
-                        script {
-                            dir('customer') {
-                                sh """
-                                    mvn clean install sonar:sonar \
-                                    -Dsonar.projectKey=trivytest \
-                                    -Dsonar.projectName=trivytest \
-                                    -Dsonar.host.url=${SONARQUBE_URL} \
-                                    -Dsonar.login=${SONARQUBE_TOKEN}
-                                """
-                            }
-                        }
+    steps {
+        container('maven-container') {  // Use Maven container to build the project
+            withSonarQubeEnv('jenkins-sonar') {
+                script {
+                    // Ensure we're in the correct directory (where pom.xml is located)
+                    dir('customer') {
+                        // Run Maven build and SonarQube analysis
+                        sh """
+                            mvn clean install sonar:sonar \
+                            -Dsonar.projectKey=trivytest \
+                            -Dsonar.projectName=trivytest \
+                            -Dsonar.host.url=${SONARQUBE_URL} \
+                            -Dsonar.login=${SONARQUBE_TOKEN}
+                        """
                     }
                 }
             }
         }
-        
+    }
+}
         stage('Quality Gate') {
             steps {
                 container('maven-container') {
                     script {
                         timeout(time: 1, unit: 'MINUTES') {
-                            def qualityGate = waitForQualityGate abortPipeline: true
-                            echo "Quality Gate result: ${qualityGate.status}"
+                           def qualityGate = waitForQualityGate abortPipeline: true
+                           echo "Quality Gate result: ${qualityGate.status}"
                         }
                     }
                 }
             }
         }
-        
         stage('Authenticate and Push Docker Image') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
@@ -92,55 +77,82 @@ pipeline {
                 }
             }
         }
-        
-        stage('Run Trivy Scan') {
-            steps {
-                container('gcloud-docker') {
-                    script {
-                        echo "Running Trivy Scan on the Docker image..."
-                        sh '''
-                            set -e
-                            apt-get update && apt-get install -y curl
-                            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
-                            export PATH=$PATH:$(pwd)/bin
-                            trivy --version || exit 1
-                            mkdir -p trivy-reports
-                            curl -O https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
-                            [ -f html.tpl ] && mv html.tpl trivy-reports/custom-html.tpl || exit 1
-                            trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed --vuln-type os,library --no-progress \
-                            --format template --template "@trivy-reports/custom-html.tpl" -o trivy-reports/trivy-scan-report.html \
-                            ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
-                        '''
-                    }
-                }
-            }
-            post {
-                always {
-                    echo "Publishing Trivy Scan Report..."
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'trivy-reports',
-                        reportFiles: 'trivy-scan-report.html',
-                        reportName: 'Trivy Vulnerability Report'
-                    ])
-                }
+   stage('Run Trivy Scan') {
+    steps {
+        container('gcloud-docker') {
+            script {
+                echo "Running Trivy Scan on the Docker image..."
+ 
+                sh '''
+                    set -e  # Exit on error
+ 
+                    # Install curl if missing
+                    apt-get update && apt-get install -y curl
+ 
+                    # Install Trivy
+                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
+ 
+                    # Ensure Trivy is in the PATH
+                    export PATH=$PATH:$(pwd)/bin
+ 
+                    # Verify Trivy installation
+                    if ! trivy --version; then
+                        echo "Trivy installation failed, exiting..."
+                        exit 1
+                    fi
+ 
+                    # Create directory for Trivy reports
+                    mkdir -p trivy-reports
+ 
+                    # Download the Trivy HTML template
+                    curl -O https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
+ 
+                    # Ensure the file was downloaded before renaming
+                    if [ -f html.tpl ]; then
+                        mv html.tpl trivy-reports/custom-html.tpl
+                    else
+                        echo "Failed to download Trivy HTML template, exiting..."
+                        exit 1
+                    fi
+ 
+                    # Run the Trivy scan and save the report inside trivy-reports/
+                    trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed --vuln-type os,library --no-progress \
+                    --format template --template "@trivy-reports/custom-html.tpl" -o trivy-reports/trivy-scan-report.html \
+                    ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
+ 
+                '''
             }
         }
-        
-        stage('Push Docker Image to Registry') {
+    }
+    post {
+        always {
+            echo "Publishing Trivy Scan Report..."
+ 
+            publishHTML([
+                allowMissing: false,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'trivy-reports',
+                reportFiles: 'trivy-scan-report.html',
+                reportName: 'Trivy Vulnerability Report'
+            ])
+        }
+    }
+}
+ 
+ 
+         stage('Push Docker Image to Registry') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
                     container('gcloud-docker') {
                         script {
+                            // Push Docker image to the registry after scan
                             sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
                         }
                     }
                 }
             }
         }
-        
         stage('Deploy to GKE') {
             steps {
                 container('gcloud-docker') {
@@ -151,20 +163,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-    
-    post {
-        cleanup {
-            cleanWs(cleanWhenNotBuilt: false,
-                deleteDirs: true,
-                disableDeferredWipeout: true,
-                notFailBuild: true,
-                patterns: [[pattern: '.*', type: 'INCLUDE']])
-            sh 'docker logout'
-            echo 'Current directory is..'
-            echo pwd()
-            sh "rm ${env.WORKSPACE}/* -fr"
         }
     }
 }
