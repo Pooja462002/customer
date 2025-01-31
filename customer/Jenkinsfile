@@ -84,37 +84,30 @@ pipeline {
             script {
                 echo "Running Trivy Scan on the Docker image..."
 
-                // Install curl if missing
                 sh '''
+                    set -e  # Exit if any command fails
+
+                    # Install curl if missing
                     apt-get update && apt-get install -y curl
-                '''
 
-                // Install Trivy
-                sh '''
+                    # Install Trivy
                     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
-                '''
 
-                // Ensure Trivy is in the PATH
-                sh '''
-                    export PATH=$PATH:$(pwd)/bin
-                '''
-
-                // Verify Trivy installation
-                sh '''
-                    if ! command -v trivy &> /dev/null; then
-                        echo "Trivy could not be found, exiting..."
+                    # Verify Trivy installation
+                    if ! ./bin/trivy --version; then
+                        echo "Trivy installation failed, exiting..."
                         exit 1
                     fi
-                '''
 
-                // Run the Trivy scan on the built image
-                sh """
-                    trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
+                    # Run the Trivy scan on the built image
+                    ./bin/trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
                     -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
-                """
+                '''
             }
         }
     }
+}
+
     post {
         always {
             echo "Publishing Trivy Scan Report..."
