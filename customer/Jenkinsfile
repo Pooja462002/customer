@@ -79,50 +79,57 @@ pipeline {
         }
        
     stage('Run Trivy Scan') {
-            steps {
-                container('gcloud-docker') {
-                    script {
-                        echo "Running Trivy Scan on the Docker image..."
+    steps {
+        container('gcloud-docker') {
+            script {
+                echo "Running Trivy Scan on the Docker image..."
 
-                        // Install curl if missing
-                         sudo apt-get update && sudo apt-get install -y curl
- 
-                        // Install Trivy
-                        sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin'
+                // Install curl if missing
+                sh '''
+                    apt-get update && apt-get install -y curl
+                '''
 
-                        // Ensure Trivy is in the PATH
-                        sh 'export PATH=$PATH:$(pwd)/bin'
+                // Install Trivy
+                sh '''
+                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
+                '''
 
-                        // Verify Trivy installation
-                        sh '''
-                            if ! command -v trivy &> /dev/null; then
-                                echo "Trivy could not be found, exiting..."
-                                exit 1
-                            fi
-                        '''
+                // Ensure Trivy is in the PATH
+                sh '''
+                    export PATH=$PATH:$(pwd)/bin
+                '''
 
-                        // Run the Trivy scan on the built image
-                        sh """
-                            trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
-                            -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
-                        """
-                    }
-                }
-            }
-            post {
-                always {
-                    echo "Publishing Trivy Scan Report..."
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '.',
-                        reportFiles: 'trivy-scan-report.html',
-                        reportName: 'Trivy Vulnerability Report'
-                    ])
-                }
+                // Verify Trivy installation
+                sh '''
+                    if ! command -v trivy &> /dev/null; then
+                        echo "Trivy could not be found, exiting..."
+                        exit 1
+                    fi
+                '''
+
+                // Run the Trivy scan on the built image
+                sh """
+                    trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
+                    -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
+                """
             }
         }
+    }
+    post {
+        always {
+            echo "Publishing Trivy Scan Report..."
+            publishHTML([
+                allowMissing: false,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: '.',
+                reportFiles: 'trivy-scan-report.html',
+                reportName: 'Trivy Vulnerability Report'
+            ])
+        }
+    }
+}
+
          stage('Push Docker Image to Registry') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
