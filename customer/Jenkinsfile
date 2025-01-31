@@ -64,6 +64,42 @@ pipeline {
                 }
             }
         }
+         stage('Run Trivy Scan') {
+            steps {
+                sh '''
+                    if ! command -v curl &> /dev/null; then
+                        echo "curl not found. Installing curl..."
+                        apk add --no-cache curl
+                    fi
+                    if ! command -v trivy &> /dev/null; then
+                        echo "Trivy not found. Installing Trivy..."
+                        curl -sfL ${TRIVY_INSTALL_URL} | sh -s -- -b ${TRIVY_BINARY_PATH}
+                    else
+                        echo "Trivy is already installed."
+                    fi
+                    export PATH=$PATH:${TRIVY_BINARY_PATH}
+                    if ! command -v trivy &> /dev/null; then
+                        echo "Trivy installation failed. Exiting..."
+                        exit 1
+                    fi
+                    curl -O ${TRIVY_TEMPLATE_URL}
+                    trivy image --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-scan-report.html ${FULL_IMAGE_PATH}
+                '''
+            }
+            post {
+                always {
+                    echo "Publishing Trivy Scan Report..."
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'trivy-scan-report.html',
+                        reportName: 'Trivy Vulnerability Report'
+                    ])
+                }
+            }
+        }
         stage('Authenticate and Push Docker Image') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
