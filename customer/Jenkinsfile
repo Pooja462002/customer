@@ -106,8 +106,6 @@ pipeline {
             }
         }
     }
-}
-
     post {
         always {
             echo "Publishing Trivy Scan Report..."
