@@ -1,268 +1,91 @@
 pipeline {
-    agent any
-    tools {
-        maven 'm3'
+    agent {
+        kubernetes {
+            label "agent-${UUID.randomUUID().toString()}"
+            yamlFile "customer/pipeline/agent.yaml"
+        }
     }
     environment {
         GKE_CLUSTER_NAME = 'prod-phase-sonar'
         GKE_PROJECT = 'jenkins-sonar-448116'
-        GKE_ZONE = 'us-central1-a'
-        DOCKER_REGISTRY = 'docker.io/rohith9769'
-        DOCKER_IMAGE_NAME = 'pet-image'
-        FULL_IMAGE_PATH = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
+        GKE_ZONE = 'us-central1-c'
+        DOCKER_REGISTRY = 'us-central1-docker.pkg.dev/jenkins-sonar-448116/docker-registry'
+        DOCKER_IMAGE_NAME = 'backend-image'
+        SONARQUBE_URL = 'http://34.121.131.107:9000'
+        SONARQUBE_TOKEN = credentials('jenkins-sonar')
     }
     stages {
         stage('Clone Repository') {
-            agent {
-                kubernetes {
-                    label 'petclinic-pod'
-                    defaultContainer 'maven'
-                    yaml '''apiVersion: v1
-kind: Pod
-metadata:
-  name: petclinic-pod
-spec:
-  containers:
-    - name: maven
-      image: maven:3.8.3-openjdk-17
-      command:
-        - cat
-      tty: true
-    - name: docker
-      image: docker:19.03.12
-      privileged: true
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-  volumes:
-    - name: docker-socket
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket'''
-                }
-            }
             steps {
                 checkout scm
             }
         }
-        stage('Build') {
-            agent {
-                kubernetes {
-                    label 'petclinic-pod'
-                    defaultContainer 'maven'
-                    yaml '''apiVersion: v1
-kind: Pod
-metadata:
-  name: petclinic-pod
-spec:
-  containers:
-    - name: maven
-      image: maven:3.8.3-openjdk-17
-      command:
-        - cat
-      tty: true
-    - name: docker
-      image: docker:19.03.12
-      privileged: true
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-  volumes:
-    - name: docker-socket
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket'''
-                }
-            }
+        stage('Maven Build & Test') {
             steps {
-                container('maven') {
+                container('maven-container') {
                     script {
-                        dir('spring-petclinic') {
-                            sh 'mvn clean package -DskipTests'
+                        dir('customer') {
+                            sh 'mvn clean install' // Run Maven build and tests
                         }
                     }
                 }
             }
         }
-        stage('Build Docker Image') {
-            agent {
-                kubernetes {
-                    label 'petclinic-pod'
-                    defaultContainer 'docker'
-                    yaml '''apiVersion: v1
-kind: Pod
-metadata:
-  name: petclinic-pod
-spec:
-  containers:
-    - name: maven
-      image: maven:3.8.3-openjdk-17
-      command:
-        - cat
-      tty: true
-    - name: docker
-      image: docker:19.03.12
-      privileged: true
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-  volumes:
-    - name: docker-socket
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket'''
+        stage('SonarQube Analysis') {
+    steps {
+        container('maven-container') {  // Use Maven container to build the project
+            withSonarQubeEnv('jenkins-sonar') {
+                script {
+                    // Ensure we're in the correct directory (where pom.xml is located)
+                    dir('/home/jenkins/agent/workspace/customer/customer') {
+                        // Run Maven build and SonarQube analysis
+                        sh """
+                            mvn clean install sonar:sonar \
+                            -Dsonar.projectKey=customertest \
+                            -Dsonar.projectName=customertest \
+                            -Dsonar.host.url=${SONARQUBE_URL} \
+                            -Dsonar.login=${SONARQUBE_TOKEN}
+                        """
+                    }
                 }
             }
+        }
+    }
+}
+        stage('Quality Gate') {
             steps {
-                container('docker') {
+                container('maven-container') {
                     script {
-                        dir('spring-petclinic') {
-                            sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 -f Dockerfile ."
+                        timeout(time: 1, unit: 'MINUTES') {
+                           def qualityGate = waitForQualityGate abortPipeline: true
+                           echo "Quality Gate result: ${qualityGate.status}"
                         }
                     }
                 }
             }
         }
-        stage('Run Trivy Scan') {
-            agent {
-                kubernetes {
-                    label 'petclinic-pod'
-                    defaultContainer 'docker'
-                    yaml '''apiVersion: v1
-kind: Pod
-metadata:
-  name: petclinic-pod
-spec:
-  containers:
-    - name: docker
-      image: docker:19.03.12
-      privileged: true
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-  volumes:
-    - name: docker-socket
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket'''
-                }
-            }
+        stage('Authenticate and Push Docker Image') {
             steps {
-                sh '''
-                    # Install curl if missing
-                    apk add --no-cache curl
-                    # Install Trivy
-                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
-                    # Ensure Trivy is in the PATH
-                    export PATH=$PATH:$(pwd)/bin
-                    # Verify Trivy installation
-                    if ! command -v trivy &> /dev/null; then
-                        echo "Trivy could not be found, exiting..."
-                        exit 1
-                    fi
-
-
-                    # Run Trivy scan and generate the HTML report using the custom template             
-                    trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" -o trivy-scan-report.html ${FULL_IMAGE_PATH}
-                '''
-            }
-            post {
-                always {
-                    echo "Publishing Trivy Scan Report..."
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '.',
-                        reportFiles: 'trivy-scan-report.html',
-                        reportName: 'Trivy Vulnerability Report'
-                    ])
-                }
-            }
-        }
-        stage('Push Docker Image to Docker Hub') {
-            agent {
-                kubernetes {
-                    label 'petclinic-pod'
-                    defaultContainer 'docker'
-                    yaml '''apiVersion: v1
-kind: Pod
-metadata:
-  name: petclinic-pod
-spec:
-  containers:
-    - name: docker
-      image: docker:19.03.12
-      privileged: true
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-  volumes:
-    - name: docker-socket
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket'''
-                }
-            }
-            steps {
-                container('docker') {
-                    sh "echo Nani@9769 | docker login -u rohith9769 --password-stdin"
-                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
+                withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
+                    container('gcloud-docker') {
+                        script {
+                            sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
+                            sh 'gcloud auth configure-docker asia-south1-docker.pkg.dev'
+                            sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./backend"
+                            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
+                        }
+                    }
                 }
             }
         }
         stage('Deploy to GKE') {
-            agent {
-                kubernetes {
-                    label 'petclinic-pod'
-                    defaultContainer 'gcloud'
-                    yaml '''apiVersion: v1
-kind: Pod
-metadata:
-  name: petclinic-pod
-spec:
-  containers:
-    - name: gcloud
-      image: google/cloud-sdk:latest
-      command:
-        - cat
-      tty: true
-    - name: docker
-      image: docker:19.03.12
-      privileged: true
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: docker-socket
-          mountPath: /var/run/docker.sock
-  volumes:
-    - name: docker-socket
-      hostPath:
-        path: /var/run/docker.sock
-        type: Socket'''
-                }
-            }
             steps {
-                container('gcloud') {
-                    sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
-                    sh 'kubectl apply -f spring-petclinic/k8s/deployment.yaml'
-                    sh 'kubectl apply -f spring-petclinic/k8s/service.yaml'
+                container('gcloud-docker') {
+                    script {
+                        sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
+                        sh 'kubectl apply -f backend/kubernetes/deployment.yaml'
+                        sh 'kubectl apply -f backend/kubernetes/service.yaml'
+                    }
                 }
             }
         }
