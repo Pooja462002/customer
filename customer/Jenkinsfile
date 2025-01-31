@@ -176,6 +176,6 @@ pipeline {
             echo pwd()
             sh "rm ${env.WORKSPACE}/* -fr"
         }
-    }
+    
     }
 }
