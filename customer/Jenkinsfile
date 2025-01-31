@@ -93,19 +93,32 @@ pipeline {
                     # Install Trivy
                     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
 
+                    # Ensure Trivy is in the PATH
+                    export PATH=$PATH:$(pwd)/bin
+
                     # Verify Trivy installation
-                    if ! ./bin/trivy --version; then
+                    if ! trivy --version; then
                         echo "Trivy installation failed, exiting..."
                         exit 1
                     fi
 
+                    # Create directory for Trivy reports
+                    mkdir -p trivy-reports
+
                     # Download the Trivy HTML template
                     curl -O https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
-                    mv html.tpl custom-html.tpl  # Rename to match expected filename
 
-                    # Run the Trivy scan
-                    ./bin/trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
-                    -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
+                    # Ensure the file was downloaded before renaming
+                    if [ -f html.tpl ]; then
+                        mv html.tpl trivy-reports/custom-html.tpl
+                    else
+                        echo "Failed to download Trivy HTML template, exiting..."
+                        exit 1
+                    fi
+
+                    # Run the Trivy scan and save the report inside trivy-reports/
+                    trivy image --severity HIGH,CRITICAL --format template --template "@trivy-reports/custom-html.tpl" \
+                    -o trivy-reports/trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
                 '''
             }
         }
@@ -113,17 +126,19 @@ pipeline {
     post {
         always {
             echo "Publishing Trivy Scan Report..."
+
             publishHTML([
                 allowMissing: false,
                 alwaysLinkToLastBuild: true,
                 keepAll: true,
-                reportDir: '.',
+                reportDir: 'trivy-reports',
                 reportFiles: 'trivy-scan-report.html',
                 reportName: 'Trivy Vulnerability Report'
             ])
         }
     }
 }
+
 
          stage('Push Docker Image to Registry') {
             steps {
