@@ -1,110 +1,181 @@
 pipeline {
-    agent {
-        kubernetes {
-            label "agent-${UUID.randomUUID().toString()}"
-            yamlFile "customer/pipeline/agent.yaml"
-        }
+    agent any
+    tools {
+        maven 'm3'
     }
     environment {
         GKE_CLUSTER_NAME = 'prod-phase-sonar'
         GKE_PROJECT = 'jenkins-sonar-448116'
-        GKE_ZONE = 'us-central1-c'
-        DOCKER_REGISTRY = 'us-central1-docker.pkg.dev/jenkins-sonar-448116/docker-registry'
-        DOCKER_IMAGE_NAME = 'backend-image'
-        SONARQUBE_URL = 'http://34.121.131.107:9000'
-        SONARQUBE_TOKEN = credentials('jenkins-sonar')
-        TRIVY_INSTALL_URL = 'https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh'
-        TRIVY_TEMPLATE_URL = 'https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
-        TRIVY_BINARY_PATH = './bin'
+        GKE_ZONE = 'us-central1-a'
+        DOCKER_REGISTRY = 'docker.io/rohith9769'
+        DOCKER_IMAGE_NAME = 'pet-image'
+        FULL_IMAGE_PATH = "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
     }
-    
     stages {
         stage('Clone Repository') {
+            agent {
+                kubernetes {
+                    label 'petclinic-pod'
+                    defaultContainer 'maven'
+                    yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  name: petclinic-pod
+spec:
+  containers:
+    - name: maven
+      image: maven:3.8.3-openjdk-17
+      command:
+        - cat
+      tty: true
+    - name: docker
+      image: docker:19.03.12
+      privileged: true
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket'''
+                }
+            }
             steps {
                 checkout scm
             }
         }
-        stage('Maven Build & Test') {
+        stage('Build') {
+            agent {
+                kubernetes {
+                    label 'petclinic-pod'
+                    defaultContainer 'maven'
+                    yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  name: petclinic-pod
+spec:
+  containers:
+    - name: maven
+      image: maven:3.8.3-openjdk-17
+      command:
+        - cat
+      tty: true
+    - name: docker
+      image: docker:19.03.12
+      privileged: true
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket'''
+                }
+            }
             steps {
-                container('maven-container') {
+                container('maven') {
                     script {
-                        dir('customer') {
-                            sh 'mvn clean install' // Run Maven build and tests
+                        dir('spring-petclinic') {
+                            sh 'mvn clean package -DskipTests'
                         }
                     }
                 }
             }
         }
-        stage('SonarQube Analysis') {
-    steps {
-        container('maven-container') {  // Use Maven container to build the project
-            withSonarQubeEnv('jenkins-sonar') {
-                script {
-                    dir('customer') {
-                        // Run Maven build and SonarQube analysis
-                        sh """
-                            mvn clean install sonar:sonar \
-                            -Dsonar.projectKey=customertest \
-                            -Dsonar.projectName=customertest \
-                            -Dsonar.host.url=${SONARQUBE_URL} \
-                            -Dsonar.login=${SONARQUBE_TOKEN}
-                        """
-                    }
-                }
-            }
-        }
-    }
-}
-        // stage('Quality Gate') {
-        //     steps {
-        //         container('maven-container') {
-        //             script {
-        //                 timeout(time: 1, unit: 'MINUTES') {
-        //                    def qualityGate = waitForQualityGate abortPipeline: true
-        //                    echo "Quality Gate result: ${qualityGate.status}"
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
         stage('Build Docker Image') {
+            agent {
+                kubernetes {
+                    label 'petclinic-pod'
+                    defaultContainer 'docker'
+                    yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  name: petclinic-pod
+spec:
+  containers:
+    - name: maven
+      image: maven:3.8.3-openjdk-17
+      command:
+        - cat
+      tty: true
+    - name: docker
+      image: docker:19.03.12
+      privileged: true
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket'''
+                }
+            }
             steps {
-                withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
-                    container('gcloud-docker') {
-                        script {
-                            sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
-                            sh 'gcloud auth configure-docker asia-south1-docker.pkg.dev'
-                            sh "docker build --no-cache -t ${FULL_IMAGE_PATH} ./llyodsbank"
+                container('docker') {
+                    script {
+                        dir('spring-petclinic') {
+                            sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 -f Dockerfile ."
                         }
                     }
                 }
             }
         }
-             stage('Run Trivy Scan') {
+        stage('Run Trivy Scan') {
+            agent {
+                kubernetes {
+                    label 'petclinic-pod'
+                    defaultContainer 'docker'
+                    yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  name: petclinic-pod
+spec:
+  containers:
+    - name: docker
+      image: docker:19.03.12
+      privileged: true
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket'''
+                }
+            }
             steps {
                 sh '''
-                    if ! command -v curl &> /dev/null; then
-                        echo "curl not found. Installing curl..."
-                        apk add --no-cache curl
-                    fi
- 
+                    # Install curl if missing
+                    apk add --no-cache curl
+                    # Install Trivy
+                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
+                    # Ensure Trivy is in the PATH
+                    export PATH=$PATH:$(pwd)/bin
+                    # Verify Trivy installation
                     if ! command -v trivy &> /dev/null; then
-                        echo "Trivy not found. Installing Trivy..."
-                        curl -sfL ${TRIVY_INSTALL_URL} | sh -s -- -b ${TRIVY_BINARY_PATH}
-                    else
-                        echo "Trivy is already installed."
-                    fi
- 
-                    export PATH=$PATH:${TRIVY_BINARY_PATH}
- 
-                    if ! command -v trivy &> /dev/null; then
-                        echo "Trivy installation failed. Exiting..."
+                        echo "Trivy could not be found, exiting..."
                         exit 1
                     fi
- 
-                    curl -O ${TRIVY_TEMPLATE_URL}
- 
-                    trivy image --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-scan-report.html ${FULL_IMAGE_PATH}
+
+
+                    # Run Trivy scan and generate the HTML report using the custom template             
+                    trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" -o trivy-scan-report.html ${FULL_IMAGE_PATH}
                 '''
             }
             post {
@@ -121,28 +192,77 @@ pipeline {
                 }
             }
         }
-        stage('Authenticate and Push Docker Image') {
+        stage('Push Docker Image to Docker Hub') {
+            agent {
+                kubernetes {
+                    label 'petclinic-pod'
+                    defaultContainer 'docker'
+                    yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  name: petclinic-pod
+spec:
+  containers:
+    - name: docker
+      image: docker:19.03.12
+      privileged: true
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket'''
+                }
+            }
             steps {
-                withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
-                    container('gcloud-docker') {
-                        script {
-                            sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
-                            sh 'gcloud auth configure-docker asia-south1-docker.pkg.dev'
-                            sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./backend"
-                            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
-                        }
-                    }
+                container('docker') {
+                    sh "echo Nani@9769 | docker login -u rohith9769 --password-stdin"
+                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
                 }
             }
         }
         stage('Deploy to GKE') {
+            agent {
+                kubernetes {
+                    label 'petclinic-pod'
+                    defaultContainer 'gcloud'
+                    yaml '''apiVersion: v1
+kind: Pod
+metadata:
+  name: petclinic-pod
+spec:
+  containers:
+    - name: gcloud
+      image: google/cloud-sdk:latest
+      command:
+        - cat
+      tty: true
+    - name: docker
+      image: docker:19.03.12
+      privileged: true
+      command:
+        - cat
+      tty: true
+      volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket'''
+                }
+            }
             steps {
-                container('gcloud-docker') {
-                    script {
-                        sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
-                        sh 'kubectl apply -f backend/kubernetes/deployment.yaml'
-                        sh 'kubectl apply -f backend/kubernetes/service.yaml'
-                    }
+                container('gcloud') {
+                    sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
+                    sh 'kubectl apply -f spring-petclinic/k8s/deployment.yaml'
+                    sh 'kubectl apply -f spring-petclinic/k8s/service.yaml'
                 }
             }
         }
