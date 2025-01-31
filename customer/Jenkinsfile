@@ -117,7 +117,9 @@ pipeline {
                     fi
 
                     # Run the Trivy scan and save the report inside trivy-reports/
-                    trivy image --format template --template "@custom-html.tpl" -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
+                    trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed --vuln-type os,library --no-progress \
+                    --format template --template "@trivy-reports/custom-html.tpl" -o trivy-reports/trivy-scan-report.html \
+                    ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
 
                 '''
             }
