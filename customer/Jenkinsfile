@@ -72,6 +72,63 @@ pipeline {
                             sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
                             sh 'gcloud auth configure-docker us-central1-docker.pkg.dev'
                             sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./customer"
+                        }
+                    }
+                }
+            }
+        }
+       
+    stage('Run Trivy Scan') {
+            steps {
+                container('gcloud-docker') {
+                    script {
+                        echo "Running Trivy Scan on the Docker image..."
+
+                        // Install curl if missing
+                        sh 'apk add --no-cache curl'
+
+                        // Install Trivy
+                        sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin'
+
+                        // Ensure Trivy is in the PATH
+                        sh 'export PATH=$PATH:$(pwd)/bin'
+
+                        // Verify Trivy installation
+                        sh '''
+                            if ! command -v trivy &> /dev/null; then
+                                echo "Trivy could not be found, exiting..."
+                                exit 1
+                            fi
+                        '''
+
+                        // Run the Trivy scan on the built image
+                        sh """
+                            trivy image --severity HIGH,CRITICAL --format template --template "@custom-html.tpl" \
+                            -o trivy-scan-report.html ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
+                        """
+                    }
+                }
+            }
+            post {
+                always {
+                    echo "Publishing Trivy Scan Report..."
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'trivy-scan-report.html',
+                        reportName: 'Trivy Vulnerability Report'
+                    ])
+                }
+            }
+        }
+         stage('Push Docker Image to Registry') {
+            steps {
+                withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
+                    container('gcloud-docker') {
+                        script {
+                            // Push Docker image to the registry after scan
                             sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
                         }
                     }
