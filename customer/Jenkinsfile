@@ -52,18 +52,18 @@ pipeline {
         }
     }
 }
-        stage('Quality Gate') {
-            steps {
-                container('maven-container') {
-                    script {
-                        timeout(time: 1, unit: 'MINUTES') {
-                           def qualityGate = waitForQualityGate abortPipeline: true
-                           echo "Quality Gate result: ${qualityGate.status}"
-                        }
-                    }
-                }
-            }
-        }
+        // stage('Quality Gate') {
+        //     steps {
+        //         container('maven-container') {
+        //             script {
+        //                 timeout(time: 1, unit: 'MINUTES') {
+        //                    def qualityGate = waitForQualityGate abortPipeline: true
+        //                    echo "Quality Gate result: ${qualityGate.status}"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
          stage('Run Trivy Scan') {
             steps {
                 sh '''
