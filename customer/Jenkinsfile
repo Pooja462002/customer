@@ -70,8 +70,8 @@ pipeline {
                     container('gcloud-docker') {
                         script {
                             echo "🔍 Checking if GCP credentials file is received..."
-                            sh "ls -l $GCLOUD_SERVICE_KEY"  # Print file details
-                            sh "cat $GCLOUD_SERVICE_KEY | head -n 5"  # Print first 5 lines (to verify it's a JSON file)
+                            sh "ls -l $GCLOUD_SERVICE_KEY"
+                            sh "cat $GCLOUD_SERVICE_KEY | head -n 5"
                             sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
                             sh 'gcloud auth configure-docker us-central1-docker.pkg.dev'
                             sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./customer"
