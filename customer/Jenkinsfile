@@ -85,8 +85,8 @@ pipeline {
                         echo "Running Trivy Scan on the Docker image..."
 
                         // Install curl if missing
-                        apt-get install -y curl
-
+                         sudo apt-get update && sudo apt-get install -y curl
+ 
                         // Install Trivy
                         sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin'
 
