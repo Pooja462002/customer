@@ -33,6 +33,24 @@ pipeline {
             }
         }
 
+        post {
+            always {
+                script {
+                    echo 'Publishing JaCoCo Coverage Report...'
+                }
+
+                archiveArtifacts artifacts: 'customer/target/site/jacoco/**', fingerprint: true
+                publishHTML (target: [
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'customer/target/site/jacoco',
+                    reportFiles: 'index.html',
+                    reportName: 'JaCoCo Code Coverage Report'
+                ])
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 container('maven-container') {
@@ -154,23 +172,22 @@ pipeline {
         }
     }
 
- post {
-    cleanup {
-        container('gcloud-docker') {
-            script {
-                cleanWs(
-                    cleanWhenNotBuilt: false,
-                    deleteDirs: true,
-                    disableDeferredWipeout: true,
-                    notFailBuild: true,
-                    patterns: [[pattern: '.*', type: 'INCLUDE']]
-                )
-                sh 'docker logout || true' // Ignore errors if docker is not logged in
-                echo 'Cleaning up workspace...'
-                sh "rm -rf ${env.WORKSPACE}/*"
+    post {
+        cleanup {
+            container('gcloud-docker') {
+                script {
+                    cleanWs(
+                        cleanWhenNotBuilt: false,
+                        deleteDirs: true,
+                        disableDeferredWipeout: true,
+                        notFailBuild: true,
+                        patterns: [[pattern: '.*', type: 'INCLUDE']]
+                    )
+                    sh 'docker logout || true' // Ignore errors if docker is not logged in
+                    echo 'Cleaning up workspace...'
+                    sh "rm -rf ${env.WORKSPACE}/*"
+                }
             }
         }
     }
-} 
-
 }
