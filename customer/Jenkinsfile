@@ -23,33 +23,33 @@ pipeline {
             }
         }
 
-        stage('Build & Test with Maven') {
-            steps {
-                container('maven-container') {
-                    dir('customer') {
-                        sh 'mvn clean install'
-                    }
-                }
+stage('Build & Test with Maven') {
+    steps {
+        container('maven-container') {
+            dir('customer') {
+                sh 'mvn clean install'
             }
         }
-
-        post {
-            always {
-                script {
-                    echo 'Publishing JaCoCo Coverage Report...'
-                }
-
-                archiveArtifacts artifacts: 'customer/target/site/jacoco/**', fingerprint: true
-                publishHTML (target: [
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'customer/target/site/jacoco',
-                    reportFiles: 'index.html',
-                    reportName: 'JaCoCo Code Coverage Report'
-                ])
+    }
+    post {
+        always {
+            script {
+                echo 'Publishing JaCoCo Coverage Report...'
             }
+
+            archiveArtifacts artifacts: 'customer/target/site/jacoco/**', fingerprint: true
+            publishHTML (target: [
+                allowMissing: false,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'customer/target/site/jacoco',
+                reportFiles: 'index.html',
+                reportName: 'JaCoCo Code Coverage Report'
+            ])
         }
+    }
+}
+
 
         stage('SonarQube Analysis') {
             steps {
