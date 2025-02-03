@@ -1,4 +1,15 @@
 pipeline {
+    options {
+        buildDiscarder(
+            logRotator(
+                numToKeepStr: '10',
+                daysToKeepStr: '7',
+                artifactDaysToKeepStr: '7',
+                artifactNumToKeepStr: '10'
+            )
+        )
+    }
+    
     agent {
         kubernetes {
             label "agent-${UUID.randomUUID().toString()}"
@@ -23,33 +34,52 @@ pipeline {
             }
         }
 
-stage('Build & Test with Maven') {
-    steps {
-        container('maven-container') {
-            dir('customer') {
-                sh 'mvn clean install'
+        stage('Build & Test with Maven') {
+            steps {
+                container('maven-container') {
+                    dir('customer') {
+                        sh 'mvn clean install'
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'customer/target/site/jacoco/**', fingerprint: true
+                    publishHTML(target: [
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'customer/target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Code Coverage Report'
+                    ])
+                }
             }
         }
-    }
-    post {
-        always {
-            script {
-                echo 'Publishing JaCoCo Coverage Report...'
+
+        stage('Run BDD Tests') {
+            steps {
+                container('node-container') {
+                    dir('hello-world-nextjs') {
+                        sh 'mvn clean verify'
+                    }
+                }
             }
-
-            archiveArtifacts artifacts: 'customer/target/site/jacoco/**', fingerprint: true
-            publishHTML (target: [
-                allowMissing: false,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'customer/target/site/jacoco',
-                reportFiles: 'index.html',
-                reportName: 'JaCoCo Code Coverage Report'
-            ])
+            post {
+                always {
+                    archiveArtifacts artifacts: 'customer/target/site/serenity/**', fingerprint: true
+                    publishHTML(target: [
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'customer/target/site/serenity',
+                        reportFiles: 'index.html',
+                        reportName: 'BDD Test Report',
+                        reportTitles: 'BDD Cucumber Test Results'
+                    ])
+                }
+            }
         }
-    }
-}
-
 
         stage('SonarQube Analysis') {
             steps {
@@ -102,29 +132,14 @@ stage('Build & Test with Maven') {
             steps {
                 container('gcloud-docker') {
                     script {
-                        echo "Running Trivy security scan on the Docker image..."
-
                         sh '''
-                            set -e  # Exit on error
+                            set -e
                             apt-get update && apt-get install -y curl
                             curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin
                             export PATH=$PATH:$(pwd)/bin
-
-                            if ! trivy --version; then
-                                echo "Trivy installation failed, exiting..."
-                                exit 1
-                            fi
-
                             mkdir -p trivy-reports
                             curl -O https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
-
-                            if [ -f html.tpl ]; then
-                                mv html.tpl trivy-reports/custom-html.tpl
-                            else
-                                echo "Failed to download Trivy HTML template, exiting..."
-                                exit 1
-                            fi
-
+                            mv html.tpl trivy-reports/custom-html.tpl
                             trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed --vuln-type os,library --no-progress \
                             --format template --template "@trivy-reports/custom-html.tpl" -o trivy-reports/trivy-scan-report.html \
                             ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
@@ -134,7 +149,6 @@ stage('Build & Test with Maven') {
             }
             post {
                 always {
-                    echo "Publishing Trivy Scan Report..."
                     publishHTML([
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
@@ -156,34 +170,27 @@ stage('Build & Test with Maven') {
                 }
             }
         }
-
         stage('Deploy to GKE') {
-            steps {
-                container('gcloud-docker') {
-                    script {
-                        sh '''
-                            gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}
-                            kubectl apply -f customer/kubernetes/deployment.yaml
-                            kubectl apply -f customer/kubernetes/service.yaml
-                        '''
-                    }
-                }
+                steps {
+                    container('gcloud-docker') {
+                        script {
+                            sh "gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone ${GKE_ZONE} --project ${GKE_PROJECT}"
+                            sh '''
+                                sed -i "s|__IMAGE_PATH__|${FULL_IMAGE_PATH}|" customer/kubernetes/deployment.yaml
+                            '''
+                            sh 'kubectl apply -f customer/kubernetes/deployment.yaml'
+                            sh 'kubectl apply -f customer/kubernetes/service.yaml'
+                       }
+                  }
             }
-        }
-    }
+      }
 
     post {
         cleanup {
             container('gcloud-docker') {
                 script {
-                    cleanWs(
-                        cleanWhenNotBuilt: false,
-                        deleteDirs: true,
-                        disableDeferredWipeout: true,
-                        notFailBuild: true,
-                        patterns: [[pattern: '.*', type: 'INCLUDE']]
-                    )
-                    sh 'docker logout || true' // Ignore errors if docker is not logged in
+                    cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true, notFailBuild: true, patterns: [[pattern: '.*', type: 'INCLUDE']])
+                    sh 'docker logout || true'
                     echo 'Cleaning up workspace...'
                     sh "rm -rf ${env.WORKSPACE}/*"
                 }
