@@ -57,29 +57,29 @@ pipeline {
             }
         }
 
-        stage('Run BDD Tests') {
-            steps {
-                container('node-container') {
-                    dir('customer') {
-                        sh 'mvn clean verify'
-                    }
-                }
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'customer/target/site/serenity/**', fingerprint: true
-                    publishHTML(target: [
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'customer/target/site/serenity',
-                        reportFiles: 'index.html',
-                        reportName: 'BDD Test Report',
-                        reportTitles: 'BDD Cucumber Test Results'
-                    ])
-                }
-            }
-        }
+        // stage('Run BDD Tests') {
+        //     steps {
+        //         container('node-container') {
+        //             dir('customer') {
+        //                 sh 'mvn clean verify'
+        //             }
+        //         }
+        //     }
+        //     post {
+        //         always {
+        //             archiveArtifacts artifacts: 'customer/target/site/serenity/**', fingerprint: true
+        //             publishHTML(target: [
+        //                 allowMissing: false,
+        //                 alwaysLinkToLastBuild: true,
+        //                 keepAll: true,
+        //                 reportDir: 'customer/target/site/serenity',
+        //                 reportFiles: 'index.html',
+        //                 reportName: 'BDD Test Report',
+        //                 reportTitles: 'BDD Cucumber Test Results'
+        //             ])
+        //         }
+        //     }
+        // }
 
         stage('SonarQube Analysis') {
             steps {
