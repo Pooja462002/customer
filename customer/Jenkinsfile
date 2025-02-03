@@ -60,7 +60,7 @@ pipeline {
         stage('Run BDD Tests') {
             steps {
                 container('node-container') {
-                    dir('hello-world-nextjs') {
+                    dir('customer') {
                         sh 'mvn clean verify'
                     }
                 }
@@ -114,17 +114,11 @@ pipeline {
 
         stage('Authenticate & Build Docker Image') {
             steps {
-                withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
-                    container('gcloud-docker') {
+             container('gcloud-docker') {
                         script {
-                            sh '''
-                                gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY
-                                gcloud auth configure-docker us-central1-docker.pkg.dev
-                                docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./customer
-                            '''
+                            sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1 ./customer"
                         }
                     }
-                }
             }
         }
 
@@ -141,8 +135,7 @@ pipeline {
                             curl -O https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
                             mv html.tpl trivy-reports/custom-html.tpl
                             trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --ignore-unfixed --vuln-type os,library --no-progress \
-                            --format template --template "@trivy-reports/custom-html.tpl" -o trivy-reports/trivy-scan-report.html \
-                            ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1
+                            --format template --template "@trivy-reports/custom-html.tpl" -o trivy-reports/trivy-scan-report.html ${FULL_IMAGE_PATH}
                         '''
                     }
                 }
@@ -161,11 +154,15 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image to Registry') {
-            steps {
+        stage('Authenticate & Push Docker Image to Registry') {
+           steps {
                 withCredentials([file(credentialsId: 'gcp-artifact-registry-key', variable: 'GCLOUD_SERVICE_KEY')]) {
                     container('gcloud-docker') {
-                        sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
+                        script {
+                            sh 'gcloud auth activate-service-account --key-file=$GCLOUD_SERVICE_KEY'
+                            sh 'gcloud auth configure-docker us-central1-docker.pkg.dev'
+                            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:v1"
+                        }
                     }
                 }
             }
@@ -197,4 +194,5 @@ pipeline {
             }
         }
     }
+}
 }
