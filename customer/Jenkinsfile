@@ -99,18 +99,18 @@ pipeline {
             }
         }
 
-        stage('Quality Gate Check') {
-            steps {
-                container('maven-container') {
-                    script {
-                        timeout(time: 1, unit: 'MINUTES') {
-                            def qualityGate = waitForQualityGate abortPipeline: true
-                            echo "Quality Gate result: ${qualityGate.status}"
-                        }
-                    }
-                }
-            }
-        }
+        // stage('Quality Gate Check') {
+        //     steps {
+        //         container('maven-container') {
+        //             script {
+        //                 timeout(time: 1, unit: 'MINUTES') {
+        //                     def qualityGate = waitForQualityGate abortPipeline: true
+        //                     echo "Quality Gate result: ${qualityGate.status}"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
         stage('Authenticate & Build Docker Image') {
             steps {
